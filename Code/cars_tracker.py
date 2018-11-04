@@ -4,12 +4,19 @@ import cv2
 import sys
 from models import car_model
 from random import randint
+import time
 
 class cars_tracker:
     video_url: str
     car_trackers = []
     frame_weight = 600
     frame_height = 400
+    left_gate_start = (280,90,80,5)
+    left_gate_finish = (100,210,140,5)
+    right_gate_start = (300,260,140,5)
+    right_gate_finish = (380,100,90,5)
+    left_len = 0.07
+    right_len = 0.10
     def __init__(self, video_url: str):
         self.video_url = video_url
         self.video = cv2.VideoCapture(self.video_url)
@@ -18,18 +25,17 @@ class cars_tracker:
 
     def click_event(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
-            param.add_car((x-20, y-20, 40, 40))
+            param.add_car((x-20, y-20, 40, 40), "L")
         if event == cv2.EVENT_RBUTTONDOWN:
-            param.remove_near_car((x-5, y-5, 10, 10))
-            print(x,y)
+            param.add_car((x-20, y-20, 40, 40), "R")
 
-    def add_car(self, box):
+    def add_car(self, box, direction):
         ok, frame = self.video.read()
         if not ok:
             return
         resized_frame = cv2.resize(frame, (self.frame_weight, self.frame_height))
         try:    
-            car = car_model(box)
+            car = car_model(box, direction)
             tracker = cv2.TrackerMedianFlow_create()
             ok = tracker.init(resized_frame, car.init_box)
             if not ok:
@@ -55,6 +61,20 @@ class cars_tracker:
         if not ok: 
             return
         resized_frame = cv2.resize(frame, (self.frame_weight, self.frame_height))
+                
+        gates = [
+            (self.left_gate_start, (255,0,0)), 
+            (self.left_gate_finish, (0,0,255)),  
+            (self.right_gate_start, (255,0,0)),  
+            (self.right_gate_finish, (0,0,255)), 
+            ]
+
+        for gate in gates:
+            p1 = (int(gate[0][0]), int(gate[0][1]))
+            p2 = (int(gate[0][0] + gate[0][2]), int(gate[0][1] + gate[0][3]))
+            cv2.rectangle(resized_frame, p1, p2, gate[1], 1, 1)
+
+        
         for tracker in self.car_trackers:
             ok, newbox = tracker[1].update(resized_frame)
             if not ok: 
@@ -69,6 +89,19 @@ class cars_tracker:
                 p2 = (int(point[0] + point[2] / 2 + 1), 
                       int(point[1] + point[3] / 2 + 1))
                 cv2.rectangle(resized_frame, p1, p2, tracker[0].color, 2, 1)
+
+            if have_intersection(tracker[0].current_box, self.left_gate_finish) and tracker[0].direction == "L":
+                self.remove_near_car(self.left_gate_finish)
+                t = time.time() - tracker[0].init_time
+                speed = self.left_len / t * 3600
+                print("removed left. speed: " + str(speed) + " (км/год)")
+
+            if have_intersection(tracker[0].current_box, self.right_gate_finish) and tracker[0].direction == "R":
+                self.remove_near_car(self.right_gate_finish)
+                t = time.time() - tracker[0].init_time
+                speed = self.right_len / t * 3600
+                print("removed right. speed: " + str(speed) + " (км/год)")
+        
         cv2.imshow("Title", resized_frame) 
 
 def have_intersection(a,b):
@@ -96,7 +129,7 @@ def main():
                 rand_x = randint(50, tracker.frame_weight - 50)
                 rand_y = randint(50, tracker.frame_height - 50)
                 box = (rand_x, rand_y, 40, 40)
-                tracker.add_car(box)
+                tracker.add_car(box, "L")
             except: pass
         if input_key & 0xFF == ord('d'): # a - add new box
             try:
