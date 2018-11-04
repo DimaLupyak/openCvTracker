@@ -11,12 +11,16 @@ class cars_tracker:
     car_trackers = []
     frame_weight = 600
     frame_height = 400
+    left_speeds = []
+    right_speeds = []
+    last_left_speed = 0
+    last_right_speed = 0
     left_gate_start = (280,90,80,5)
-    left_gate_finish = (100,210,140,5)
+    left_gate_finish = (80,210,140,5)
     right_gate_start = (300,260,140,5)
     right_gate_finish = (380,100,90,5)
     left_len = 0.07
-    right_len = 0.10
+    right_len = 0.07
     def __init__(self, video_url: str):
         self.video_url = video_url
         self.video = cv2.VideoCapture(self.video_url)
@@ -25,9 +29,9 @@ class cars_tracker:
 
     def click_event(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
-            param.add_car((x-20, y-20, 40, 40), "L")
+            param.add_car((x-20, y-20, 30, 30), "L")
         if event == cv2.EVENT_RBUTTONDOWN:
-            param.add_car((x-20, y-20, 40, 40), "R")
+            param.add_car((x-20, y-20, 50, 50), "R")
 
     def add_car(self, box, direction):
         ok, frame = self.video.read()
@@ -95,13 +99,26 @@ class cars_tracker:
                 t = time.time() - tracker[0].init_time
                 speed = self.left_len / t * 3600
                 print("removed left. speed: " + str(speed) + " (км/год)")
+                if speed < 200:
+                    self.left_speeds.append(speed)
+                    self.last_left_speed = speed
 
             if have_intersection(tracker[0].current_box, self.right_gate_finish) and tracker[0].direction == "R":
                 self.remove_near_car(self.right_gate_finish)
                 t = time.time() - tracker[0].init_time
                 speed = self.right_len / t * 3600
                 print("removed right. speed: " + str(speed) + " (км/год)")
-        
+                if speed < 200:
+                    self.right_speeds.append(speed)
+                    self.last_right_speed = speed
+        if(len(self.left_speeds)>0):
+            cv2.putText(resized_frame, ("{:10.2f}".format(sum(self.left_speeds)/len(self.left_speeds)) + " (km/h) - avarage"), (self.left_gate_finish[0] - 50, self.left_gate_finish[1]-5), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),2)
+        if(len(self.right_speeds)>0):
+            cv2.putText(resized_frame, ("{:10.2f}".format(sum(self.right_speeds)/len(self.right_speeds)) + " (km/h) - avarage"), (self.right_gate_finish[0] - 50, self.right_gate_finish[1]-5), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),2) 
+        if(self.last_left_speed>0):
+            cv2.putText(resized_frame, ("{:10.2f}".format(self.last_left_speed) + " (km/h) - last"), (self.left_gate_finish[0] - 50, self.left_gate_finish[1]-20), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,0,255),2)
+        if(self.last_right_speed>0):
+            cv2.putText(resized_frame, ("{:10.2f}".format(self.last_right_speed) + " (km/h) - last"), (self.right_gate_finish[0] - 50, self.right_gate_finish[1]-20), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,0,255),2)
         cv2.imshow("Title", resized_frame) 
 
 def have_intersection(a,b):
@@ -114,6 +131,7 @@ def have_intersection(a,b):
 
 def main():
     video_url ='rtsp://Oleksii:eLtGk4Cb@31.42.173.15:8072'
+    #video_url = "D:\129.webm"
     tracker = cars_tracker(video_url)
     i = 0    
     while tracker.video.isOpened():
