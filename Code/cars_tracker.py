@@ -15,8 +15,8 @@ class cars_tracker:
     right_speeds = []
     last_left_speed = 0
     last_right_speed = 0
-    left_gate_start = (280,90,80,5)
-    left_gate_finish = (80,210,140,5)
+    left_gate_start = (250,90,60,5)
+    left_gate_finish = (70,190,100,5)
     right_gate_start = (300,260,140,5)
     right_gate_finish = (380,100,90,5)
     left_len = 0.07
@@ -131,7 +131,7 @@ def have_intersection(a,b):
 
 def main():
     video_url ='rtsp://Oleksii:eLtGk4Cb@31.42.173.15:8072'
-    #video_url = "D:\129.webm"
+    #video_url = 'D:\129.webm'
     tracker = cars_tracker(video_url)
     i = 0    
     while tracker.video.isOpened():
